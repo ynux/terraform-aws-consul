@@ -9,5 +9,6 @@ variable "iam_role_id" {
 
 variable "enabled" {
   description = "Give the option to disable this module if required"
+  type        = bool
   default     = true
 }

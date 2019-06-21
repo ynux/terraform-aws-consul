@@ -15,8 +15,8 @@ resource "aws_autoscaling_group" "autoscaling_group" {
 
   launch_configuration = "${aws_launch_configuration.launch_configuration.name}"
 
-  availability_zones  = ["${var.availability_zones}"]
-  vpc_zone_identifier = ["${var.subnet_ids}"]
+  availability_zones  = "${var.availability_zones}"
+  vpc_zone_identifier = "${var.subnet_ids}"
 
   # Run a fixed number of instances in the ASG
   min_size             = "${var.cluster_size}"
@@ -29,9 +29,9 @@ resource "aws_autoscaling_group" "autoscaling_group" {
   wait_for_capacity_timeout = "${var.wait_for_capacity_timeout}"
   service_linked_role_arn   = "${var.service_linked_role_arn}"
 
-  enabled_metrics = ["${var.enabled_metrics}"]
+  enabled_metrics = "${var.enabled_metrics}"
 
-  tags = [
+  tags = flatten([
     {
       key                 = "Name"
       value               = "${var.cluster_name}"
@@ -43,7 +43,7 @@ resource "aws_autoscaling_group" "autoscaling_group" {
       propagate_at_launch = true
     },
     "${var.tags}",
-  ]
+  ])
 }
 
 # ---------------------------------------------------------------------------------------------------------------------
@@ -59,7 +59,7 @@ resource "aws_launch_configuration" "launch_configuration" {
 
   iam_instance_profile        = "${var.enable_iam_setup ? element(concat(aws_iam_instance_profile.instance_profile.*.name, list("")), 0) : var.iam_instance_profile_name}"
   key_name                    = "${var.ssh_key_name}"
-  security_groups             = ["${concat(list(aws_security_group.lc_security_group.id), var.additional_security_group_ids)}"]
+  security_groups             = "${concat(list(aws_security_group.lc_security_group.id), var.additional_security_group_ids)}"
   placement_tenancy           = "${var.tenancy}"
   associate_public_ip_address = "${var.associate_public_ip_address}"
 
@@ -108,7 +108,7 @@ resource "aws_security_group_rule" "allow_ssh_inbound" {
   from_port   = "${var.ssh_port}"
   to_port     = "${var.ssh_port}"
   protocol    = "tcp"
-  cidr_blocks = ["${var.allowed_ssh_cidr_blocks}"]
+  cidr_blocks = "${var.allowed_ssh_cidr_blocks}"
 
   security_group_id = "${aws_security_group.lc_security_group.id}"
 }
@@ -142,7 +142,7 @@ module "security_group_rules" {
   source = "../consul-security-group-rules"
 
   security_group_id                    = "${aws_security_group.lc_security_group.id}"
-  allowed_inbound_cidr_blocks          = ["${var.allowed_inbound_cidr_blocks}"]
+  allowed_inbound_cidr_blocks          = "${var.allowed_inbound_cidr_blocks}"
   allowed_inbound_security_group_ids   = "${var.allowed_inbound_security_group_ids}"
   allowed_inbound_security_group_count = "${var.allowed_inbound_security_group_count}"
 
@@ -161,8 +161,7 @@ module "security_group_rules" {
 # ---------------------------------------------------------------------------------------------------------------------
 
 resource "aws_iam_instance_profile" "instance_profile" {
-  count = "${var.enable_iam_setup}"
-
+  count       = "${var.enable_iam_setup ? 1 : 0 }"
   name_prefix = "${var.cluster_name}"
   path        = "${var.instance_profile_path}"
   role        = "${element(concat(aws_iam_role.instance_role.*.name,list("")),0)}"
@@ -176,8 +175,7 @@ resource "aws_iam_instance_profile" "instance_profile" {
 }
 
 resource "aws_iam_role" "instance_role" {
-  count = "${var.enable_iam_setup}"
-
+  count       = "${var.enable_iam_setup ? 1 : 0 }"
   name_prefix        = "${var.cluster_name}"
   assume_role_policy = "${data.aws_iam_policy_document.instance_role.json}"
 
